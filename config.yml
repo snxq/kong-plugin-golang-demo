@@ -1,0 +1,14 @@
+_format_version: "3.0"
+services:
+- name: service_demo
+  url: http://127.0.0.1
+  routes:
+    - name: demo-route
+      protocols:
+        - http
+      paths:
+        - /
+plugins:
+- name: kong-plugin-golang-demo
+  config:
+    field: xxx

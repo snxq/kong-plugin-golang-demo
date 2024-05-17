@@ -1,0 +1,77 @@
+# create configmap for kong config.yml
+# kubectl create configmap gateway-config --from-file=config.yml
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway-kong
+  namespace: kong
+  labels:
+    app: gateway-kong
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: gateway-kong
+  template:
+    metadata:
+      labels:
+        app: gateway-kong
+    spec:
+      # imagePullSecrets:
+      # - name: regcred
+      containers:
+        - name: gateway-kong
+          # image address with custom golang plugin
+          image: kong:3.6.1.1
+          resources:
+            limits:
+              cpu: 8
+              memory: 4Gi
+            requests:
+              cpu: 4
+              memory: 2Gi
+          volumeMounts:
+          - name: gateway-config
+            mountPath: /kong/
+          env:
+          - name: KONG_DATABASE
+            value: "off"
+          - name: KONG_DECLARATIVE_CONFIG
+            value: /kong/config.yml
+          - name: KONG_PLUGINS
+            value: bundled,kong-plugin-golang-demo
+          - name: KONG_PLUGINSERVER_NAMES
+            value: kong-plugin-golang-demo
+          - name: KONG_PLUGINSERVER_KONG_PLUGIN_GOLANG_TEMPLATE_QUERY_CMD
+            value: /usr/local/share/lua/5.1/kong/plugins/kong-plugin-golang-demo -dump
+          - name: KONG_PLUGINSERVER_KONG_PLUGIN_GOLANG_TEMPLATE_START_CMD
+            value: /usr/local/share/lua/5.1/kong/plugins/kong-plugin-golang-demo
+          # For get real client ip
+          - name: KONG_REAL_IP_HEADER
+            value: X-Forwarded-For
+          - name: KONG_REAL_IP_RECURSIVE
+            value: "on"
+          - name: KONG_TRUSTED_IPS
+            value: 0.0.0.0/0,::/0
+          # The default value of Kong worker is set to 'auto', which means it equals
+          # the number of CPUs on the host machine.
+          # So if Kong is running in Kubernetes, this value needs to be set manually.
+          - name: KONG_WORKER_PROCESSES
+            value: 8
+          ports:
+          - containerPort: 8000
+            # HostPort is optional. 
+            hostPort: 8080
+            name: proxy
+            protocol: TCP
+          - containerPort: 8443
+            hostPort: 8443
+            name: proxy-tls
+            protocol: TCP
+      volumes:
+        - name: gateway-config
+          configMap:
+            name: gateway-config
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: "true"
